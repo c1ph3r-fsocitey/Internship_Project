@@ -1,42 +1,34 @@
 #include <Wire.h>
-#include <NewPing.h>
 
-const int lowerLimit = 30; // Set your lower distance limit here
-
-NewPing ultrasonicSensor(9, 10); // Example: Trig pin to D9, Echo pin to D10
+#define SLAVE_ADDRESS 9  // I2C address of the slave Arduino Mega
 
 void setup() {
-  Wire.begin(8);                // join I2C bus with address #8
-  Wire.onRequest(sendDistance); // register event
   Serial.begin(9600);
+  Wire.begin();
 }
 
 void loop() {
-  // No need for a specific loop in the Slave. The ultrasonic sensor reading
-  // and data transmission are triggered by the master's requests.
+  // Read data from the ultrasonic sensor on the Mega
+  int distance = readDistanceFromMega();
+  
+  // Send the data to the Serial Monitor
+  Serial.print("Distance from Mega: ");
+  Serial.println(distance);
+
+  // Send the data to the Mega over I2C
+  sendDataToMega(distance);
+
+  delay(1000);  // Add a delay to control the frequency of data transmission
 }
 
-void sendDistance() {
-  uint16_t distance = getUltrasonicData();
-
-  byte data[4];
-  data[0] = 0;          // Placeholder for future use
-  data[1] = distance >> 8;
-  data[2] = distance & 0xFF;
-  data[3] = 0;          // Placeholder for future use
-
-  Wire.write(data, 4);  // Send data to the master
+int readDistanceFromMega() {
+  Wire.requestFrom(SLAVE_ADDRESS, 1);  // Request 1 byte from the Mega
+  while (Wire.available() < 1);       // Wait until data is received
+  return Wire.read();                  // Read and return the received data
 }
 
-uint16_t getUltrasonicData() {
-  // Example: Read distance from ultrasonic sensor
-  unsigned int distance = ultrasonicSensor.ping_cm(); // Replace with your actual ultrasonic sensor reading logic
-
-  if (distance > 0) {
-    Serial.println(distance / 10.0);
-    return distance; // Return the distance in millimeters
-  } else {
-    Serial.println("Error in ultrasonic sensor reading.");
-    return 0;
-  }
+void sendDataToMega(int data) {
+  Wire.beginTransmission(SLAVE_ADDRESS);
+  Wire.write(data);  // Send the data to the Mega
+  Wire.endTransmission();
 }
